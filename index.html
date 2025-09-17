@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Pull Request Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>GitHub Pull Request Tracker</h1>
+            <div id="auth-section">
+                <button id="login-btn" class="btn btn-primary">Login with GitHub</button>
+                <button id="token-login-btn" class="btn btn-secondary">Use Personal Token</button>
+                <div id="user-info" class="hidden">
+                    <img id="user-avatar" src="" alt="User Avatar" class="avatar">
+                    <span id="username"></span>
+                    <button id="logout-btn" class="btn btn-secondary">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <div id="device-flow" class="device-flow hidden">
+        </div>
+
+        <main id="main-content" class="hidden">
+            <div class="controls">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <button id="refresh-btn" class="btn btn-primary">Refresh PRs</button>
+                    <div id="refresh-status" class="refresh-status hidden">
+                        <span class="refresh-spinner">🔄</span>
+                        <span>Refreshing...</span>
+                    </div>
+                </div>
+                <div class="filters">
+                    <div class="filter-group">
+                        <label for="repo-filter">Filter by repo:</label>
+                        <input type="text" id="repo-filter" placeholder="Enter repo name...">
+                    </div>
+                    <div class="filter-group">
+                        <label for="age-filter">Show PRs active in:</label>
+                        <select id="age-filter" style="margin-left: 5px; padding: 4px; border: 1px solid #d0d7de; border-radius: 4px;">
+                            <option value="7">Last week</option>
+                            <option value="14">Last 2 weeks</option>
+                            <option value="30">Last month</option>
+                            <option value="90">Last 3 months</option>
+                            <option value="365">Last year</option>
+                            <option value="0">All time</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>
+                            <input type="checkbox" id="auto-refresh" checked>
+                            Auto-refresh every
+                        </label>
+                        <select id="refresh-interval" style="margin-left: 5px; padding: 4px; border: 1px solid #d0d7de; border-radius: 4px;">
+                            <option value="30">30s</option>
+                            <option value="60" selected>1m</option>
+                            <option value="120">2m</option>
+                            <option value="300">5m</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Loading pull requests...</p>
+            </div>
+
+            <div id="pr-list" class="pr-list"></div>
+        </main>
+
+        <div id="error-message" class="error hidden"></div>
+    </div>
+
+    <!-- Token Modal -->
+    <div id="token-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Personal Access Token</h3>
+                <button id="token-modal-close" class="modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 6px; padding: 12px; margin-bottom: 15px; font-size: 0.9em;">
+                    <strong>✅ Personal Access Token Benefits:</strong>
+                    <ul style="margin: 5px 0 0 20px; color: #155724;">
+                        <li>Full functionality including workflow restarts</li>
+                        <li>No organization OAuth restrictions</li>
+                        <li>Direct user permissions</li>
+                    </ul>
+                </div>
+                <p>Enter your GitHub Personal Access Token:</p>
+                <p style="font-size: 0.9em; color: #656d76; margin-bottom: 15px;">
+                    Create one at <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a> with repo and actions scopes.
+                </p>
+                <input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #d0d7de; border-radius: 6px;">
+                <div style="text-align: right;">
+                    <button id="token-cancel" class="btn btn-secondary">Cancel</button>
+                    <button id="token-submit" class="btn btn-primary" style="margin-left: 10px;">Login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v=7"></script>
+</body>
+</html>
