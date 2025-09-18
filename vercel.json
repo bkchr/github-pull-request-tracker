@@ -16,6 +16,10 @@
     {
       "src": "*.css",
       "use": "@vercel/static"
+    },
+    {
+      "src": "*.svg",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -59,6 +63,22 @@
         "Expires": "0"
       },
       "dest": "/script.js"
+    },
+    {
+      "src": "/favicon.svg",
+      "headers": {
+        "Content-Type": "image/svg+xml",
+        "Cache-Control": "public, max-age=86400"
+      },
+      "dest": "/favicon.svg"
+    },
+    {
+      "src": "/favicon.ico",
+      "headers": {
+        "Content-Type": "image/svg+xml",
+        "Cache-Control": "public, max-age=86400"
+      },
+      "dest": "/favicon.svg"
     },
     {
       "src": "/",
