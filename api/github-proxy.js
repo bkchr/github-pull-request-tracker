@@ -59,9 +59,11 @@ module.exports = async (req, res) => {
         if (!response.ok) {
             const errorText = await response.text();
             console.error(`GitHub API error: ${response.status} ${response.statusText}`, errorText);
+            console.error(`Failed API call: ${req.method} ${githubUrl}`);
             return res.status(response.status).json({ 
                 error: `GitHub API error: ${response.status} ${response.statusText}`,
-                details: errorText 
+                details: errorText,
+                url: githubUrl
             });
         }
         

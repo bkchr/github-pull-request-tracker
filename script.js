@@ -1877,7 +1877,20 @@ class GitHubPRTracker {
             } catch (error) {
                 console.error('Token validation failed:', error);
                 this.accessToken = null;
-                this.showError('Invalid token or insufficient permissions');
+                
+                // Provide more specific error messages
+                let errorMessage = 'Token validation failed';
+                if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+                    errorMessage = 'Invalid token - check that your token is correct';
+                } else if (error.message.includes('403') || error.message.includes('Forbidden')) {
+                    errorMessage = 'Insufficient permissions - token needs "Pull requests" and "Metadata" read access';
+                } else if (error.message.includes('NetworkError') || error.message.includes('fetch')) {
+                    errorMessage = 'Network error - check your connection and try again';
+                } else {
+                    errorMessage = `Token validation failed: ${error.message}`;
+                }
+                
+                this.showError(errorMessage);
             }
         };
         
