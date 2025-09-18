@@ -92,9 +92,27 @@
                     </ul>
                 </div>
                 <p>Enter your GitHub Personal Access Token:</p>
-                <p style="font-size: 0.9em; color: #656d76; margin-bottom: 15px;">
-                    Create one at <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a> with repo and actions scopes.
-                </p>
+                <div style="font-size: 0.9em; color: #656d76; margin-bottom: 15px;">
+                    <p style="margin-bottom: 10px;">Create a <strong>fine-grained personal access token</strong> at <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">github.com/settings/personal-access-tokens/new</a></p>
+                    <div style="background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 10px;">
+                        <strong>Required repository permissions:</strong>
+                        <ul style="margin: 5px 0 0 20px; line-height: 1.4;">
+                            <li><code>Pull requests</code> → <strong>Read</strong></li>
+                            <li><code>Metadata</code> → <strong>Read</strong></li>
+                            <li><code>Commit statuses</code> → <strong>Read</strong></li>
+                            <li><code>Checks</code> → <strong>Read</strong> (+ <strong>Write</strong> for CI restart)</li>
+                            <li><code>Actions</code> → <strong>Read</strong> (+ <strong>Write</strong> for CI restart)</li>
+                        </ul>
+                        <strong style="margin-top: 10px; display: block;">Account permissions:</strong>
+                        <ul style="margin: 5px 0 0 20px; line-height: 1.4;">
+                            <li><code>Email addresses</code> → <strong>Read</strong></li>
+                        </ul>
+                        <div style="margin-top: 8px; font-size: 0.85em; color: #656d76;">
+                            💡 Select specific repositories or "All repositories" as needed<br>
+                            🔒 Much more secure than classic tokens with broad scopes
+                        </div>
+                    </div>
+                </div>
                 <input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #d0d7de; border-radius: 6px;">
                 <div style="text-align: right;">
                     <button id="token-cancel" class="btn btn-secondary">Cancel</button>
