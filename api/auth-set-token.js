@@ -28,10 +28,9 @@ module.exports = async (req, res) => {
         
         const cookieOptions = [
             'HttpOnly',
-            'SameSite=None',
-            'Secure', // Required with SameSite=None
+            'SameSite=Lax', // More permissive for same-site requests
+            'Secure', // Still needed for HTTPS
             'Path=/',
-            `Domain=${domain}`,
             'Max-Age=2592000' // 30 days
         ];
 

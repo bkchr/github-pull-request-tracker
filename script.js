@@ -429,19 +429,32 @@ class GitHubPRTracker {
     }
 
     async fetchUser(signal = null) {
-        const response = await fetch('/api/github-proxy/user', {
-            headers: {
-                'Accept': 'application/vnd.github.v3+json'
-            },
-            credentials: 'include',
-            signal: signal
-        });
+        console.log('Attempting to fetch user from /api/github-proxy/user');
+        
+        try {
+            const response = await fetch('/api/github-proxy/user', {
+                headers: {
+                    'Accept': 'application/vnd.github.v3+json'
+                },
+                credentials: 'include',
+                signal: signal
+            });
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch user');
+            console.log('Fetch user response:', response.status, response.statusText);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Fetch user error details:', errorText);
+                throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('Fetch user success:', data.login);
+            return data;
+        } catch (error) {
+            console.error('Fetch user network error:', error);
+            throw error;
         }
-
-        return response.json();
     }
 
     async fetchPullRequests(isAutoRefresh = false) {
