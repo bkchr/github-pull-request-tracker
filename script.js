@@ -34,6 +34,7 @@ class GitHubPRTracker {
     // Check authentication status from HTTP-only cookie
     async checkAuthStatus() {
         try {
+            console.log('Checking auth status...');
             const response = await fetch('/api/auth-status', {
                 method: 'GET',
                 credentials: 'include'
@@ -41,6 +42,7 @@ class GitHubPRTracker {
             
             if (response.ok) {
                 const data = await response.json();
+                console.log('Auth status response:', data);
                 if (data.authenticated) {
                     this.accessToken = 'cookie-based'; // Placeholder since we can't access the actual token
                     this.authMethod = data.auth_method;
@@ -58,6 +60,7 @@ class GitHubPRTracker {
                         await this.clearAuthToken();
                     }
                 } else {
+                    console.log('Not authenticated via cookies');
                     this.accessToken = null;
                     this.authMethod = 'oauth';
                 }

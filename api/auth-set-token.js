@@ -31,10 +31,17 @@ module.exports = async (req, res) => {
             'Max-Age=2592000' // 30 days
         ];
 
-        res.setHeader('Set-Cookie', [
+        const cookieStrings = [
             `github_access_token=${access_token}; ${cookieOptions.join('; ')}`,
             `auth_method=${auth_method || 'oauth'}; ${cookieOptions.join('; ')}`
-        ]);
+        ];
+        
+        console.log('Setting cookies:', {
+            host: req.headers.host,
+            cookieStrings
+        });
+        
+        res.setHeader('Set-Cookie', cookieStrings);
         
         res.json({ success: true });
     } catch (error) {

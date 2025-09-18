@@ -29,6 +29,13 @@ module.exports = async (req, res) => {
         const hasToken = !!cookies.github_access_token;
         const authMethod = cookies.auth_method || 'oauth';
         
+        // Debug logging
+        console.log('Auth status check:', {
+            hasCookieHeader: !!req.headers.cookie,
+            cookieKeys: Object.keys(cookies),
+            hasToken
+        });
+        
         res.json({ 
             authenticated: hasToken,
             auth_method: authMethod
