@@ -1,0 +1,54 @@
+const fetch = require('node-fetch');
+
+module.exports = async (req, res) => {
+    // Enable CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+    
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+
+    try {
+        console.log('Proxying GitHub GraphQL request');
+        
+        const headers = {
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+            'User-Agent': 'PR-Tracker'
+        };
+        
+        // Forward authorization header if present
+        if (req.headers.authorization) {
+            headers.Authorization = req.headers.authorization;
+        }
+        
+        const response = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(req.body)
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`GitHub GraphQL API error: ${response.status} ${response.statusText}`, errorText);
+            return res.status(response.status).json({ 
+                error: `GitHub GraphQL API error: ${response.status} ${response.statusText}`,
+                details: errorText 
+            });
+        }
+        
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error('GitHub GraphQL API proxy error:', error);
+        res.status(500).json({ error: 'GitHub GraphQL API request failed', details: error.message });
+    }
+};

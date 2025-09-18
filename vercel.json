@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/github-device-code",
+      "dest": "/api/github-device-code.js"
+    },
+    {
+      "src": "/api/github-device-token", 
+      "dest": "/api/github-device-token.js"
+    },
+    {
+      "src": "/api/github-graphql",
+      "dest": "/api/github-graphql.js"
+    },
+    {
+      "src": "/api/github-proxy/(.*)",
+      "dest": "/api/github-proxy.js"
+    },
+    {
+      "src": "/script.js",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "env": {
+    "GITHUB_CLIENT_ID": "@github_client_id"
+  }
+}
