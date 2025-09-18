@@ -1878,12 +1878,17 @@ class GitHubPRTracker {
             }
             
             try {
-                // Validate the token by trying to fetch user info
-                this.accessToken = token;
+                // Set the token as a cookie first
+                const tokenSet = await this.setAuthToken(token, 'token');
+                if (!tokenSet) {
+                    this.showError('Failed to set authentication token');
+                    return;
+                }
+                
+                // Now validate the token by trying to fetch user info (will use the cookie)
                 const user = await this.fetchUser();
                 
                 // If we get here, the token is valid
-                await this.setAuthToken(token, 'token');
                 this.hideTokenModal();
                 this.showUserInfo(user);
                 this.showMainContent();
