@@ -462,7 +462,7 @@ class GitHubPRTracker {
         // Safety check to prevent infinite loops
         this.fetchCount++;
         if (this.fetchCount > 100) {
-            console.error('🚨 [SAFETY] Too many fetch attempts, stopping to prevent infinite loop');
+            console.error('Too many fetch attempts, stopping to prevent infinite loop');
             this.showError('Too many API requests - stopping auto-refresh for safety');
             this.stopAutoRefresh();
             return;
@@ -470,13 +470,12 @@ class GitHubPRTracker {
         
         // Check if we have a valid access token
         if (!this.accessToken) {
-            console.warn('⚠️ No access token available, skipping fetch');
+            console.warn('No access token available, skipping fetch');
             return;
         }
         
         // Cancel any existing fetch request
         if (this.currentFetchController) {
-            console.log(`🚫 fetchPullRequests: Aborting previous fetch #${this.currentFetchController.fetchId}`);
             this.currentFetchController.abort();
         }
         
@@ -566,11 +565,21 @@ class GitHubPRTracker {
         } catch (error) {
             // Don't show error for cancelled requests
             if (error.name === 'AbortError' || signal.aborted) {
-                console.log(`🚫 Fetch #${fetchId} was cancelled`);
             } else {
                 console.error(`❌ Fetch #${fetchId} failed:`, error);
-                console.error('Error stack:', error.stack);
-                this.showError('Failed to fetch pull requests: ' + error.message);
+                console.error('Error details:', {
+                    message: error.message || 'Unknown error',
+                    name: error.name || 'Unknown',
+                    stack: error.stack || 'No stack trace available'
+                });
+                
+                let errorMessage = 'Failed to fetch pull requests';
+                if (error.message) {
+                    errorMessage += ': ' + error.message;
+                } else {
+                    errorMessage += '. Please check your authentication and try again.';
+                }
+                this.showError(errorMessage);
             }
         } finally {
             const endTime = new Date().toLocaleTimeString();
