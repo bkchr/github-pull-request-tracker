@@ -1252,21 +1252,15 @@ class GitHubPRTracker {
             }
             
             if (matchesRepoFilter && matchesAgeFilter) {
-                const prElement = await this.createPRElement(pr, isAutoRefresh);
+                // Create a basic PR element immediately for faster perceived loading
+                const quickPrElement = this.createQuickPRElement(pr);
                 
-                // Check if this display was superseded while creating the element
-                if (this.currentDisplayId !== displayId) {
-                    console.log(`🚫 Display #${displayId} cancelled during PR creation`);
-                    // Don't remove placeholder - it might belong to the newer display
-                    return;
-                }
-                
-                // Insert the PR element before the loading placeholder
+                // Insert the quick element first
                 const placeholder = document.getElementById('pr-loading-placeholder');
                 if (placeholder) {
-                    prList.insertBefore(prElement, placeholder);
+                    prList.insertBefore(quickPrElement, placeholder);
                 } else {
-                    prList.appendChild(prElement);
+                    prList.appendChild(quickPrElement);
                 }
                 visibleCount++;
                 
@@ -1274,6 +1268,23 @@ class GitHubPRTracker {
                 if (visibleCount === 1 && this.currentDisplayId === displayId) {
                     this.showLoading(false);
                 }
+                
+                // Then asynchronously replace with the full detailed element
+                this.createPRElement(pr, isAutoRefresh).then(prElement => {
+                    // Check if this display was superseded while creating the element
+                    if (this.currentDisplayId !== displayId) {
+                        console.log(`🚫 Display #${displayId} cancelled during PR creation`);
+                        return;
+                    }
+                    
+                    // Replace the quick element with the detailed one
+                    if (quickPrElement.parentNode) {
+                        quickPrElement.parentNode.replaceChild(prElement, quickPrElement);
+                    }
+                }).catch(error => {
+                    console.warn(`Failed to create detailed PR element for ${pr.repo}#${pr.number}:`, error);
+                    // Keep the quick element if detailed creation fails
+                });
                 
                 // Debug: Log EVERY PR being added when age filter is active
                 if (ageCutoffDate) {
@@ -1307,6 +1318,40 @@ class GitHubPRTracker {
         } finally {
             this.displayInProgress = false;
         }
+    }
+
+    createQuickPRElement(pr) {
+        // Create a basic PR element immediately without API calls for faster loading
+        const prDiv = document.createElement('div');
+        prDiv.className = 'pr-item loading-placeholder';
+        prDiv.dataset.repo = pr.repo.toLowerCase();
+        prDiv.dataset.updatedAt = pr.updated_at;
+        
+        prDiv.innerHTML = `
+            <div class="pr-header">
+                <div class="pr-info">
+                    <h3 class="pr-title">
+                        <a href="${pr.html_url}" target="_blank">${pr.title}</a>
+                    </h3>
+                    <div class="pr-meta">
+                        <span class="repo-name">${pr.repo}</span>
+                        <span class="pr-number">#${pr.number}</span>
+                        <span class="pr-author">by ${pr.user.login}</span>
+                        <span class="pr-updated">updated ${new Date(pr.updated_at).toLocaleDateString()}</span>
+                    </div>
+                </div>
+                <div class="pr-status">
+                    <div class="loading-spinner"></div>
+                    <div class="pr-actions">
+                        <a href="${pr.html_url}" target="_blank" class="btn btn-details">
+                            View Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return prDiv;
     }
 
     async createPRElement(pr, isAutoRefresh = false) {
@@ -1745,86 +1790,100 @@ class GitHubPRTracker {
     async checkMergeQueueStatus(prs, signal, user, isAutoRefresh = false) {
         // Check auto-merge status for each PR using GraphQL and filter results
         const filteredPRs = [];
-        let currentPrIndex = 0;
         
-        for (const pr of prs) {
-            currentPrIndex++;
-            
-            // Update loading status with current PR
-            this.updateLoadingStatus(`Checking PR #${pr.number} (${currentPrIndex}/${prs.length})`, isAutoRefresh);
-            
+        // Process PRs in parallel for much better performance
+        const BATCH_SIZE = 10; // Process 10 PRs at a time to avoid overwhelming the API
+        
+        for (let i = 0; i < prs.length; i += BATCH_SIZE) {
             if (signal && signal.aborted) return [];
             
-            try {
-                // Extract repo owner and name from repository URL
-                const repoMatch = pr.repository_url.match(/repos\/([^\/]+)\/([^\/]+)$/);
-                if (!repoMatch) continue;
+            const batch = prs.slice(i, i + BATCH_SIZE);
+            this.updateLoadingStatus(`Processing PRs ${i + 1}-${Math.min(i + BATCH_SIZE, prs.length)} of ${prs.length}...`, isAutoRefresh);
+            
+            // Process this batch in parallel
+            const batchPromises = batch.map(async (pr) => {
+                if (signal && signal.aborted) return null;
                 
-                const [, owner, repo] = repoMatch;
-                
-                // Use GraphQL to check if this PR has auto-merge enabled
-                const graphqlQuery = {
-                    query: `
-                        query($owner: String!, $repo: String!, $number: Int!) {
-                            repository(owner: $owner, name: $repo) {
-                                pullRequest(number: $number) {
-                                    autoMergeRequest {
-                                        enabledAt
-                                        enabledBy {
-                                            login
+                try {
+                    // Extract repo owner and name from repository URL
+                    const repoMatch = pr.repository_url.match(/repos\/([^\/]+)\/([^\/]+)$/);
+                    if (!repoMatch) return null;
+                    
+                    const [, owner, repo] = repoMatch;
+                    
+                    // Use GraphQL to check if this PR has auto-merge enabled
+                    const graphqlQuery = {
+                        query: `
+                            query($owner: String!, $repo: String!, $number: Int!) {
+                                repository(owner: $owner, name: $repo) {
+                                    pullRequest(number: $number) {
+                                        autoMergeRequest {
+                                            enabledAt
+                                            enabledBy {
+                                                login
+                                            }
+                                            mergeMethod
                                         }
-                                        mergeMethod
                                     }
                                 }
                             }
+                        `,
+                        variables: {
+                            owner: owner,
+                            repo: repo,
+                            number: pr.number
                         }
-                    `,
-                    variables: {
-                        owner: owner,
-                        repo: repo,
-                        number: pr.number
-                    }
-                };
-                
-                const response = await fetch('/api/github-graphql', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(graphqlQuery),
-                    signal: signal
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    const autoMergeRequest = data.data?.repository?.pullRequest?.autoMergeRequest;
+                    };
                     
-                    // Determine if we should include this PR
-                    const isMyPR = pr.user.login === user.login;
-                    const iEnabledMergeWhenReady = autoMergeRequest && autoMergeRequest.enabledBy.login === user.login;
+                    const response = await fetch('/api/github-graphql', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify(graphqlQuery),
+                        signal: signal
+                    });
                     
-                    if (isMyPR || iEnabledMergeWhenReady) {
-                        if (autoMergeRequest) {
-                            pr.autoMergeRequest = autoMergeRequest;
-                            pr.hasMergeWhenReady = true;
+                    if (response.ok) {
+                        const data = await response.json();
+                        const autoMergeRequest = data.data?.repository?.pullRequest?.autoMergeRequest;
+                        
+                        // Determine if we should include this PR
+                        const isMyPR = pr.user.login === user.login;
+                        const iEnabledMergeWhenReady = autoMergeRequest && autoMergeRequest.enabledBy.login === user.login;
+                        
+                        if (isMyPR || iEnabledMergeWhenReady) {
+                            if (autoMergeRequest) {
+                                pr.autoMergeRequest = autoMergeRequest;
+                                pr.hasMergeWhenReady = true;
+                            }
+                            return pr;
                         }
-                        filteredPRs.push(pr);
+                    } else {
+                        // If we can't check merge status, include it if it's the user's PR
+                        if (pr.user.login === user.login) {
+                            return pr;
+                        }
                     }
-                } else {
-                    // If we can't check merge status, include it if it's the user's PR
-                    if (pr.user.login === user.login) {
-                        filteredPRs.push(pr);
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        // If we can't check merge status, include it if it's the user's PR
+                        if (pr.user.login === user.login) {
+                            return pr;
+                        }
                     }
                 }
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    // If we can't check merge status, include it if it's the user's PR
-                    if (pr.user.login === user.login) {
-                        filteredPRs.push(pr);
-                    }
-                }
-            }
+                return null;
+            });
+            
+            // Wait for this batch to complete
+            const batchResults = await Promise.all(batchPromises);
+            
+            // Add non-null results to filteredPRs
+            batchResults.forEach(pr => {
+                if (pr) filteredPRs.push(pr);
+            });
         }
         
         // Reset loading status
