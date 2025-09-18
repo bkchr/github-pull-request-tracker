@@ -1,5 +1,6 @@
 class GitHubPRTracker {
     constructor() {
+        console.log('🚀 GitHubPRTracker constructor called');
         this.clientId = 'Ov23li2VVjfGHdt11COT';
         this.accessToken = null;
         this.authMethod = 'oauth'; // 'oauth' or 'token'
@@ -17,12 +18,41 @@ class GitHubPRTracker {
         this.prCache = new Map(); // Cache PR details to speed up refreshes
         this.fetchCount = 0; // Safety counter to prevent infinite loops
         
-        console.log('Starting initialization...');
+        console.log('🚀 About to call checkAuthStatus()');
+        
+        // Since our test showed cookies work, let's directly set up the authenticated state
+        console.log('🧪 Testing auth status and setting up UI...');
+        fetch('/api/auth-status', { credentials: 'include' })
+            .then(response => response.json())
+            .then(data => {
+                console.log('🧪 Auth status data:', data);
+                if (data.authenticated) {
+                    console.log('✅ User is authenticated! Setting up UI...');
+                    this.accessToken = 'cookie-based';
+                    this.authMethod = data.auth_method;
+                    
+                    // Fetch user info and set up UI
+                    return this.fetchUser();
+                }
+            })
+            .then(user => {
+                if (user) {
+                    console.log('✅ User info received:', user.login);
+                    this.showUserInfo(user);
+                    this.showMainContent();
+                    this.fetchPullRequests(false, false); // Disable AbortController
+                }
+            })
+            .catch(error => {
+                console.error('🧪 Auth setup failed:', error);
+            });
+        
         this.checkAuthStatus().then(() => {
-            console.log('Auth status check complete, calling init...');
+            console.log('🚀 checkAuthStatus completed, calling init()');
             this.init();
         }).catch(error => {
-            console.error('Auth status check failed:', error);
+            console.error('❌ Auth status check failed:', error);
+            console.log('🚀 Auth failed, calling init() anyway');
             this.init(); // Still call init even if auth check fails
         });
     }
@@ -41,16 +71,19 @@ class GitHubPRTracker {
     // Check authentication status from HTTP-only cookie
     async checkAuthStatus() {
         try {
-            console.log('Checking auth status...');
+            console.log('🔍 Checking auth status on page load...');
+            console.log('🔍 About to call fetch /api/auth-status');
             const response = await fetch('/api/auth-status', {
                 method: 'GET',
                 credentials: 'include'
             });
+            console.log('🔍 Auth status response received:', response.status);
             
             if (response.ok) {
                 const data = await response.json();
-                console.log('Auth status response:', data);
+                console.log('🔍 Auth status data:', data);
                 if (data.authenticated) {
+                    console.log('✅ User is authenticated! Setting up UI...');
                     this.accessToken = 'cookie-based'; // Placeholder since we can't access the actual token
                     this.authMethod = data.auth_method;
                     
@@ -67,16 +100,25 @@ class GitHubPRTracker {
                         await this.clearAuthToken();
                     }
                 } else {
-                    console.log('Not authenticated via cookies');
+                    console.log('❌ User not authenticated via cookies');
                     this.accessToken = null;
                     this.authMethod = 'oauth';
                 }
+            } else {
+                console.log('❌ Auth status check failed:', response.status);
             }
         } catch (error) {
-            console.error('Failed to check auth status:', error);
+            console.error('❌ Failed to check auth status:', error);
+            console.error('❌ Error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
             this.accessToken = null;
             this.authMethod = 'oauth';
         }
+        
+        console.log('🔚 checkAuthStatus method finished, accessToken:', this.accessToken);
     }
 
     // Set authentication token using HTTP-only cookie
@@ -223,7 +265,6 @@ class GitHubPRTracker {
     }
 
     init() {
-        console.log('Init method called');
         this.setupEventListeners();
         // Don't call checkAuthStatus here - it's already called in constructor
     }
@@ -458,9 +499,9 @@ class GitHubPRTracker {
     }
 
     async fetchUser(signal = null) {
-        console.log('fetchUser: Making request to /api/github-proxy/user');
-        
+        console.log('🔍 fetchUser: Starting request to /api/github-proxy/user');
         try {
+            console.log('🔍 fetchUser: About to call fetch()');
             const response = await fetch('/api/github-proxy/user', {
                 headers: {
                     'Accept': 'application/vnd.github.v3+json'
@@ -468,8 +509,7 @@ class GitHubPRTracker {
                 credentials: 'include',
                 signal: signal
             });
-
-            console.log('fetchUser: Response received:', response.status, response.statusText);
+            console.log('🔍 fetchUser: Fetch completed, response received:', response.status, response.ok);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -478,7 +518,6 @@ class GitHubPRTracker {
             }
 
             const data = await response.json();
-            console.log('fetchUser: Success, user:', data.login);
             return data;
         } catch (error) {
             console.error('fetchUser: Network error:', error);
@@ -486,7 +525,8 @@ class GitHubPRTracker {
         }
     }
 
-    async fetchPullRequests(isAutoRefresh = false) {
+    async fetchPullRequests(isAutoRefresh = false, useAbortController = true) {
+        console.log('🔥 fetchPullRequests called, isAutoRefresh:', isAutoRefresh, 'accessToken:', this.accessToken, 'useAbortController:', useAbortController);
         if (!this.accessToken) return;
         
         // Safety check to prevent infinite loops
@@ -504,17 +544,37 @@ class GitHubPRTracker {
             return;
         }
         
-        // Cancel any existing fetch request
-        if (this.currentFetchController) {
-            this.currentFetchController.abort();
-        }
+        let signal = null;
+        let fetchId;
         
-        // Create new AbortController for this request with unique ID
-        this.fetchIdCounter++;
-        const fetchId = this.fetchIdCounter;
-        this.currentFetchController = new AbortController();
-        this.currentFetchController.fetchId = fetchId;
-        const signal = this.currentFetchController.signal;
+        if (useAbortController) {
+            // Cancel any existing fetch request
+            if (this.currentFetchController) {
+                console.log('Aborting previous fetch controller:', this.currentFetchController.fetchId);
+                this.currentFetchController.abort();
+                // Give a brief moment for the abort to process
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+            
+            // Create new AbortController for this request with unique ID
+            this.fetchIdCounter++;
+            fetchId = this.fetchIdCounter;
+            this.currentFetchController = new AbortController();
+            this.currentFetchController.fetchId = fetchId;
+            signal = this.currentFetchController.signal;
+            
+            console.log(`🚀 Starting fetch #${fetchId}, signal aborted: ${signal.aborted}`);
+            
+            // Check if signal was already aborted (this should not happen)
+            if (signal.aborted) {
+                console.error('🚨 Signal was already aborted immediately after creation!');
+                return;
+            }
+        } else {
+            console.log('🚀 Starting fetch without AbortController');
+            this.fetchIdCounter++;
+            fetchId = this.fetchIdCounter;
+        }
         
         const now = new Date().toLocaleTimeString();
         
@@ -537,15 +597,17 @@ class GitHubPRTracker {
         
         try {
             // Check if request was cancelled before starting
-            if (signal.aborted) {
+            if (signal?.aborted) {
                 return;
             }
             
             // Get current user info first
+            console.log(`📡 Fetch #${fetchId}: About to call fetchUser, signal aborted: ${signal?.aborted}`);
             const user = await this.fetchUser(signal);
+            console.log(`✅ Fetch #${fetchId}: fetchUser completed, user: ${user?.login}`);
             
             // Check if request was cancelled after user fetch
-            if (signal.aborted) {
+            if (signal?.aborted) {
                 return;
             }
             
@@ -562,7 +624,7 @@ class GitHubPRTracker {
             const prs = await this.checkMergeQueueStatus(allPrs, signal, user);
             
             // Check if request was cancelled after search
-            if (signal.aborted) {
+            if (signal?.aborted) {
                 return;
             }
             
@@ -570,7 +632,7 @@ class GitHubPRTracker {
             prs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
             
             // Final check if request was cancelled before displaying
-            if (signal.aborted) {
+            if (signal?.aborted) {
                 return;
             }
             
@@ -582,7 +644,7 @@ class GitHubPRTracker {
             const filtersHaveChanged = this.filtersChanged(currentFilterState, newFilterState);
             
             // Only update display if data actually changed (for auto-refresh) AND filters haven't changed AND request wasn't cancelled
-            if ((!isAutoRefresh || this.lastPRData !== newPRData) && !filtersHaveChanged && !signal.aborted) {
+            if ((!isAutoRefresh || this.lastPRData !== newPRData) && !filtersHaveChanged && !signal?.aborted) {
                 this.displayPullRequests(prs, this.currentFetchController, isAutoRefresh);
                 this.lastPRData = newPRData;
             }
@@ -594,7 +656,7 @@ class GitHubPRTracker {
             
         } catch (error) {
             // Don't show error for cancelled requests
-            if (error.name === 'AbortError' || signal.aborted) {
+            if (error.name === 'AbortError' || signal?.aborted) {
             } else {
                 console.error(`❌ Fetch #${fetchId} failed:`, error);
                 console.error('Error details:', {
@@ -1420,9 +1482,7 @@ class GitHubPRTracker {
                     // Skip cancelled workflows due to higher priority requests
                     if (workflow.conclusion === 'cancelled') {
                         const isHigherPriority = this.isCancelledForHigherPriority(workflow);
-                        console.log(`Workflow "${workflow.name}" (${workflow.id}): cancelled=${workflow.conclusion === 'cancelled'}, higherPriority=${isHigherPriority}, display_title="${workflow.display_title}"`);
                         if (isHigherPriority) {
-                            console.log(`Skipping workflow "${workflow.name}" due to higher priority cancellation`);
                             continue;
                         }
                     }
@@ -1743,7 +1803,6 @@ class GitHubPRTracker {
                     if (pr.user.login === user.login) {
                         filteredPRs.push(pr);
                     }
-                    console.warn(`⚠️ [MERGE_WHEN_READY] Failed to check auto-merge for PR #${pr.number}: ${response.status}`);
                 }
             } catch (error) {
                 if (error.name !== 'AbortError') {
@@ -1751,7 +1810,6 @@ class GitHubPRTracker {
                     if (pr.user.login === user.login) {
                         filteredPRs.push(pr);
                     }
-                    console.warn(`⚠️ [MERGE_WHEN_READY] Error checking auto-merge for PR #${pr.number}:`, error.message);
                 }
             }
         }
@@ -1881,7 +1939,7 @@ class GitHubPRTracker {
                 this.showUserInfo(user);
                 this.showMainContent();
                 document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
-                this.fetchPullRequests(false);
+                this.fetchPullRequests(false, false); // Disable AbortController for token submission
                 this.showSuccess('Successfully authenticated with Personal Access Token');
                 
             } catch (error) {
@@ -2066,7 +2124,14 @@ class GitHubPRTracker {
 }
 
 // Initialize the tracker when the page loads
+console.log('🚀 Script.js loaded!');
 let tracker;
 document.addEventListener('DOMContentLoaded', () => {
-    tracker = new GitHubPRTracker();
+    console.log('🚀 DOMContentLoaded event fired');
+    try {
+        tracker = new GitHubPRTracker();
+        console.log('🚀 GitHubPRTracker instance created');
+    } catch (error) {
+        console.error('🚨 Failed to create GitHubPRTracker:', error);
+    }
 });

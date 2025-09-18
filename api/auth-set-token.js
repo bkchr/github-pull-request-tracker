@@ -25,21 +25,16 @@ module.exports = async (req, res) => {
         // Set HTTP-only cookie with security flags
         const cookieOptions = [
             'HttpOnly',
-            'SameSite=Lax', // More permissive for same-site requests
-            'Secure', // Still needed for HTTPS
+            'SameSite=Lax',
+            req.headers.host?.includes('localhost') ? '' : 'Secure', // Only Secure for production
             'Path=/',
             'Max-Age=2592000' // 30 days
-        ];
+        ].filter(Boolean);
 
         const cookieStrings = [
             `github_access_token=${access_token}; ${cookieOptions.join('; ')}`,
             `auth_method=${auth_method || 'oauth'}; ${cookieOptions.join('; ')}`
         ];
-        
-        console.log('Setting cookies:', {
-            host: req.headers.host,
-            cookieStrings
-        });
         
         res.setHeader('Set-Cookie', cookieStrings);
         

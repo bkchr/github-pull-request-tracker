@@ -77,7 +77,6 @@ app.post('/api/github/device/token', async (req, res) => {
 // GitHub GraphQL API endpoint
 app.post('/api/github/graphql', async (req, res) => {
     try {
-        console.log('Proxying GitHub GraphQL request');
         
         const headers = {
             'Accept': 'application/vnd.github.v3+json',
@@ -120,7 +119,6 @@ app.all('/api/github/*', async (req, res) => {
         const queryString = req.url.split('?')[1] || '';
         const githubUrl = `https://api.github.com${githubPath}${queryString ? '?' + queryString : ''}`;
         
-        console.log(`Proxying GitHub API request: ${req.method} ${githubUrl}`);
         
         const headers = {
             'Accept': 'application/vnd.github.v3+json',
@@ -156,46 +154,45 @@ app.all('/api/github/*', async (req, res) => {
         
         const data = await response.json();
         
-        // Debug logging for PR #9742 CI status
-        if (githubPath.includes('/check-runs') && githubPath.includes('61b1607b690edccf0fe913f4ca3a40da098336bb')) {
-            console.log('\n=== PR #9742 CHECK RUNS DEBUG ===');
-            console.log(`Check runs found: ${data.check_runs?.length || 0}`);
-            if (data.check_runs) {
-                data.check_runs.forEach(run => {
-                    console.log(`- ${run.name}: status=${run.status}, conclusion=${run.conclusion}`);
-                });
-            }
-            console.log('================================\n');
-        }
-        
-        if (githubPath.includes('/status') && githubPath.includes('61b1607b690edccf0fe913f4ca3a40da098336bb')) {
-            console.log('\n=== PR #9742 COMMIT STATUS DEBUG ===');
-            console.log(`Overall state: ${data.state}`);
-            console.log(`Statuses found: ${data.statuses?.length || 0}`);
-            if (data.statuses) {
-                data.statuses.forEach(status => {
-                    console.log(`- ${status.context}: state=${status.state}, description="${status.description}"`);
-                });
-            }
-            console.log('===================================\n');
-        }
-        
-        if (githubPath.includes('/actions/runs') && queryString.includes('61b1607b690edccf0fe913f4ca3a40da098336bb')) {
-            console.log('\n=== PR #9742 WORKFLOW RUNS DEBUG ===');
-            console.log(`Workflow runs found: ${data.workflow_runs?.length || 0}`);
-            if (data.workflow_runs) {
-                data.workflow_runs.forEach(run => {
-                    console.log(`- ${run.name}: status=${run.status}, conclusion=${run.conclusion}`);
-                });
-            }
-            console.log('====================================\n');
-        }
         
         res.json(data);
     } catch (error) {
         console.error('GitHub API proxy error:', error);
         res.status(500).json({ error: 'GitHub API request failed', details: error.message });
     }
+});
+
+// Auth endpoints for cookie-based authentication
+app.post('/api/auth-set-token', (req, res) => {
+    const { access_token, auth_method } = req.body;
+    
+    if (!access_token) {
+        return res.status(400).json({ error: 'access_token is required' });
+    }
+
+    res.json({ success: true, message: 'Token set (local server mode - no actual cookie set)' });
+});
+
+app.get('/api/auth-status', (req, res) => {
+    res.json({ 
+        authenticated: false,  // Local server doesn't support cookies
+        auth_method: 'manual',
+        message: 'Local server mode - use manual token entry'
+    });
+});
+
+app.post('/api/auth-clear-token', (req, res) => {
+    res.json({ success: true });
+});
+
+// Test endpoint
+app.get('/api/test-proxy', (req, res) => {
+    res.json({ 
+        success: true,
+        message: 'Local server test proxy working',
+        timestamp: new Date().toISOString(),
+        server: 'local-express'
+    });
 });
 
 // Serve the main page
