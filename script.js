@@ -17,7 +17,14 @@ class GitHubPRTracker {
         this.prCache = new Map(); // Cache PR details to speed up refreshes
         this.fetchCount = 0; // Safety counter to prevent infinite loops
         
-        this.checkAuthStatus().then(() => this.init());
+        console.log('Starting initialization...');
+        this.checkAuthStatus().then(() => {
+            console.log('Auth status check complete, calling init...');
+            this.init();
+        }).catch(error => {
+            console.error('Auth status check failed:', error);
+            this.init(); // Still call init even if auth check fails
+        });
     }
 
     // Helper function to get age cutoff date based on filter selection
@@ -216,8 +223,9 @@ class GitHubPRTracker {
     }
 
     init() {
+        console.log('Init method called');
         this.setupEventListeners();
-        this.checkAuthStatus();
+        // Don't call checkAuthStatus here - it's already called in constructor
     }
 
     setupEventListeners() {
