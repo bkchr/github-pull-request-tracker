@@ -17,7 +17,6 @@ class GitHubPRTracker {
         this.prCache = new Map(); // Cache PR details to speed up refreshes
         this.fetchCount = 0; // Safety counter to prevent infinite loops
         
-        console.log('🏗️ [CONSTRUCTOR] GitHubPRTracker constructor called');
         this.checkAuthStatus().then(() => this.init());
     }
 
@@ -214,9 +213,7 @@ class GitHubPRTracker {
     }
 
     init() {
-        console.log('🏗️ [INIT] Setting up event listeners');
         this.setupEventListeners();
-        console.log('🏗️ [INIT] Checking auth status');
         this.checkAuthStatus();
     }
 
@@ -225,7 +222,6 @@ class GitHubPRTracker {
         document.getElementById('token-login-btn').addEventListener('click', () => this.showTokenModal());
         document.getElementById('logout-btn').addEventListener('click', () => this.logout());
         document.getElementById('refresh-btn').addEventListener('click', () => {
-            console.log('🔄 Manual refresh button clicked');
             this.fetchPullRequests(false);
         });
         
@@ -255,9 +251,7 @@ class GitHubPRTracker {
                 const user = await this.fetchUser();
                 this.showUserInfo(user);
                 this.showMainContent();
-                console.log('🏗️ [INIT] Setting up page visibility detection');
                 document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
-                console.log('🏗️ [INIT] Calling initial fetchPullRequests');
                 this.fetchPullRequests(false); // Explicitly pass false for initial load
             } catch (error) {
                 console.error('Token validation failed:', error);
@@ -483,7 +477,6 @@ class GitHubPRTracker {
         const signal = this.currentFetchController.signal;
         
         const now = new Date().toLocaleTimeString();
-        console.log(`🚀 [${now}] Starting fetch request #${fetchId} (isAutoRefresh: ${isAutoRefresh})`);
         
         // Capture current filter state to check later
         const currentFilterState = this.getCurrentFilterState();
@@ -556,7 +549,6 @@ class GitHubPRTracker {
             
             // Start auto-refresh on first successful load (only if not already running)
             if (!isAutoRefresh && this.autoRefreshInterval === null && this.autoRefreshEnabled) {
-                console.log('🔄 Starting auto-refresh for first time after successful load');
                 this.startAutoRefresh();
             }
             
@@ -571,7 +563,6 @@ class GitHubPRTracker {
             }
         } finally {
             const endTime = new Date().toLocaleTimeString();
-            console.log(`🏁 [${endTime}] Fetch #${fetchId} completed - setting isRefreshing=false`);
             this.isRefreshing = false;
             if (isAutoRefresh) {
                 this.showRefreshStatus(false);
@@ -1034,7 +1025,6 @@ class GitHubPRTracker {
             
             // Refresh the PR list after a short delay
             setTimeout(() => {
-                console.log('🔄 Auto-refreshing after restart workflow');
                 this.fetchPullRequests(false);
             }, 3000);
         } catch (error) {
@@ -1170,7 +1160,6 @@ class GitHubPRTracker {
                 // Debug: Log EVERY PR being added when age filter is active
                 if (ageCutoffDate) {
                     const daysDiff = Math.round((new Date() - prUpdatedDate) / (1000 * 60 * 60 * 24));
-                    console.log(`✅ Adding PR: "${pr.title}" (${daysDiff} days old, updated: ${pr.updated_at})`);
                     
                     // This should NEVER happen
                     if (prUpdatedDate < ageCutoffDate) {
@@ -1186,7 +1175,6 @@ class GitHubPRTracker {
             finalPlaceholder.remove();
         }
         
-        console.log(`🏁 END display #${displayId}: ${visibleCount} PRs added to DOM`);
         
         // Hide loading spinner if no PRs were added (only if this display is still current and not auto-refresh)
         if (visibleCount === 0 && this.currentDisplayId === displayId && !isAutoRefresh) {
@@ -1723,7 +1711,6 @@ class GitHubPRTracker {
 
     applyFilters() {
         const ageFilterDays = parseInt(document.getElementById('age-filter').value);
-        console.log(`🔄 applyFilters called: ageFilter=${ageFilterDays} days`);
         
         // Cancel any ongoing fetch to prevent race conditions
         if (this.currentFetchController && !this.currentFetchController.signal.aborted) {
@@ -1843,9 +1830,7 @@ class GitHubPRTracker {
                 this.hideTokenModal();
                 this.showUserInfo(user);
                 this.showMainContent();
-                console.log('🏗️ [TOKEN] Setting up page visibility detection');
                 document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
-                console.log('🏗️ [TOKEN] Calling initial fetchPullRequests after token auth');
                 this.fetchPullRequests(false);
                 this.showSuccess('Successfully authenticated with Personal Access Token');
                 
@@ -1935,15 +1920,12 @@ class GitHubPRTracker {
         const intervalSelect = document.getElementById('refresh-interval');
         const intervalSeconds = parseInt(intervalSelect.value);
         
-        console.log(`🔄 Starting auto-refresh every ${intervalSeconds} seconds (interval value: "${intervalSelect.value}")`);
         
         this.autoRefreshInterval = setInterval(() => {
             const now = new Date().toLocaleTimeString();
-            console.log(`🔄 [${now}] Auto-refresh check: hidden=${document.hidden}, isRefreshing=${this.isRefreshing}, displayInProgress=${this.displayInProgress}`);
             
             // Only refresh if page is visible and not already refreshing
             if (!document.hidden && !this.isRefreshing && !this.displayInProgress) {
-                console.log(`✅ [${now}] Auto-refresh triggered - fetching PRs`);
                 this.fetchPullRequests(true);
             } else {
                 console.log(`⏸️ [${now}] Auto-refresh skipped`);
@@ -2035,9 +2017,6 @@ class GitHubPRTracker {
 
 // Initialize the tracker when the page loads
 let tracker;
-console.log('🚀 [STARTUP] GitHub PR Tracker script loaded - v7');
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 [STARTUP] DOM loaded, initializing tracker');
     tracker = new GitHubPRTracker();
-    console.log('🚀 [STARTUP] GitHubPRTracker initialized');
 });

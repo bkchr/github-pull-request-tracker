@@ -25,6 +25,7 @@ module.exports = async (req, res) => {
             });
         }
         
+        
         const hasToken = !!cookies.github_access_token;
         const authMethod = cookies.auth_method || 'oauth';
         
