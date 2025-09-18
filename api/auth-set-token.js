@@ -23,17 +23,13 @@ module.exports = async (req, res) => {
         }
 
         // Set HTTP-only cookie with security flags
-        const isProduction = process.env.NODE_ENV === 'production';
         const cookieOptions = [
             'HttpOnly',
-            'SameSite=Strict',
+            'SameSite=None',
+            'Secure', // Required with SameSite=None
             'Path=/',
             'Max-Age=2592000' // 30 days
         ];
-        
-        if (isProduction) {
-            cookieOptions.push('Secure');
-        }
 
         console.log('Setting cookies:', {
             isProduction,
