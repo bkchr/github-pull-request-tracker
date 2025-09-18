@@ -22,17 +22,22 @@ module.exports = async (req, res) => {
             return res.status(400).json({ error: 'access_token is required' });
         }
 
-        // Set HTTP-only cookie with security flags
+        // Set HTTP-only cookie with security flags for custom domain
+        const host = req.headers.host;
+        const domain = host; // Use exact host to avoid subdomain issues
+        
         const cookieOptions = [
             'HttpOnly',
             'SameSite=None',
             'Secure', // Required with SameSite=None
             'Path=/',
+            `Domain=${domain}`,
             'Max-Age=2592000' // 30 days
         ];
 
         console.log('Setting cookies:', {
-            isProduction,
+            host,
+            domain,
             cookieOptions,
             hasToken: !!access_token
         });

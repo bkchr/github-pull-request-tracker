@@ -60,6 +60,7 @@ class GitHubPRTracker {
     // Set authentication token using HTTP-only cookie
     async setAuthToken(accessToken, authMethod = 'oauth') {
         try {
+            console.log('Attempting to set auth token via cookie...');
             const response = await fetch('/api/auth-set-token', {
                 method: 'POST',
                 headers: {
@@ -72,12 +73,17 @@ class GitHubPRTracker {
                 })
             });
             
+            console.log('Set token response:', response.status, response.statusText);
+            
             if (response.ok) {
+                const data = await response.json();
+                console.log('Set token success:', data);
                 this.accessToken = 'cookie-based';
                 this.authMethod = authMethod;
                 return true;
             } else {
-                console.error('Failed to set auth token');
+                const errorText = await response.text();
+                console.error('Failed to set auth token:', response.status, errorText);
                 return false;
             }
         } catch (error) {
