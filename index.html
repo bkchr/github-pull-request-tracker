@@ -93,25 +93,19 @@
                 </div>
                 <p>Enter your GitHub Personal Access Token:</p>
                 <div style="font-size: 0.9em; color: #656d76; margin-bottom: 15px;">
-                    <p style="margin-bottom: 10px;">Create a <strong>fine-grained personal access token</strong> at <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">github.com/settings/personal-access-tokens/new</a></p>
+                    <p style="margin-bottom: 10px;">Create a <strong>classic personal access token</strong> at <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a></p>
                     <div style="background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px; padding: 10px;">
-                        <strong>Required repository permissions:</strong>
+                        <strong>Required scopes:</strong>
                         <ul style="margin: 5px 0 0 20px; line-height: 1.4;">
-                            <li><code>Pull requests</code> → <strong>Read</strong></li>
-                            <li><code>Metadata</code> → <strong>Read</strong></li>
-                            <li><code>Actions</code> → <strong>Read</strong> (+ <strong>Write</strong> for CI restart)</li>
+                            <li><code>repo</code> → <strong>Full control of private repositories</strong></li>
+                            <li><code>workflow</code> → <strong>Update GitHub Action workflows</strong> (for CI restart)</li>
                         </ul>
                         <div style="margin-top: 10px; font-size: 0.85em; color: #656d76;">
-                            ℹ️ No account permissions needed - uses basic user profile info
-                        </div>
-                        <div style="margin-top: 8px; padding: 8px; background: #fff8dc; border: 1px solid #f0c36d; border-radius: 4px; font-size: 0.85em;">
-                            ⚠️ <strong>Important:</strong> You must select repositories the token can access:<br>
-                            • Choose "All repositories" for all repos, OR<br>
-                            • Select specific repositories you want to track
+                            ℹ️ Classic tokens work reliably with organization repositories
                         </div>
                     </div>
                 </div>
-                <input type="password" id="token-input" placeholder="github_pat_xxxxxxxxxxxxxxxxxxxx" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #d0d7de; border-radius: 6px;">
+                <input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #d0d7de; border-radius: 6px;">
                 <div style="text-align: right;">
                     <button id="token-cancel" class="btn btn-secondary">Cancel</button>
                     <button id="token-submit" class="btn btn-primary" style="margin-left: 10px;">Login</button>

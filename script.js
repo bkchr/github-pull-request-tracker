@@ -615,13 +615,14 @@ class GitHubPRTracker {
             // This includes PRs where you're author, assignee, mentioned, or reviewer
             const openPRsQuery = `involves:${user.login} is:pr is:open`;
             
-            console.log(`🔍 [SEARCH] Fetching open PRs involving user: ${openPRsQuery}`);
+            // Update loading status
+            this.updateLoadingStatus('Searching for pull requests...', isAutoRefresh);
             
             // Fetch open PRs - we'll check merge queue status for each one
             const allPrs = await this.searchPullRequests(openPRsQuery, signal);
             
             // Check auto-merge ("merge when ready") status for each PR and filter
-            const prs = await this.checkMergeQueueStatus(allPrs, signal, user);
+            const prs = await this.checkMergeQueueStatus(allPrs.items, signal, user, isAutoRefresh);
             
             // Check if request was cancelled after search
             if (signal?.aborted) {
@@ -702,7 +703,7 @@ class GitHubPRTracker {
         
         // Convert search results to PR format and extract repo info
         // Filter out PRs from archived repositories
-        return data.items
+        const filteredItems = data.items
             .filter(item => {
                 // Check if repository is archived (GitHub search includes repository object)
                 return !item.repository || !item.repository.archived;
@@ -721,6 +722,11 @@ class GitHubPRTracker {
                     updated_at: item.updated_at
                 };
             });
+        
+        return {
+            items: filteredItems,
+            total_count: data.total_count
+        };
     }
 
     async fetchUserRepos() {
@@ -1346,7 +1352,9 @@ class GitHubPRTracker {
             this.prCache.set(cacheKey, { checks, reviews, prDetails });
         }
         
-        const ciStatusIcon = this.getCIStatusIcon(checks.status);
+        // Only show CI status if PR is not already showing as "Mergeable" to avoid redundant checkmarks
+        const isMergeable = prDetails.mergeable === true && reviews.approvals > 0 && checks.status === 'success';
+        const ciStatusIcon = isMergeable ? '' : this.getCIStatusIcon(checks.status);
         
         // Get failure reasons if needed and determine the best detail URL
         let failureReasonsHtml = '';
@@ -1734,11 +1742,17 @@ class GitHubPRTracker {
                oldState.ageFilterDays !== newState.ageFilterDays;
     }
 
-    async checkMergeQueueStatus(prs, signal, user) {
+    async checkMergeQueueStatus(prs, signal, user, isAutoRefresh = false) {
         // Check auto-merge status for each PR using GraphQL and filter results
         const filteredPRs = [];
+        let currentPrIndex = 0;
         
         for (const pr of prs) {
+            currentPrIndex++;
+            
+            // Update loading status with current PR
+            this.updateLoadingStatus(`Checking PR #${pr.number} (${currentPrIndex}/${prs.length})`, isAutoRefresh);
+            
             if (signal && signal.aborted) return [];
             
             try {
@@ -1790,7 +1804,6 @@ class GitHubPRTracker {
                     const isMyPR = pr.user.login === user.login;
                     const iEnabledMergeWhenReady = autoMergeRequest && autoMergeRequest.enabledBy.login === user.login;
                     
-                    
                     if (isMyPR || iEnabledMergeWhenReady) {
                         if (autoMergeRequest) {
                             pr.autoMergeRequest = autoMergeRequest;
@@ -1813,6 +1826,9 @@ class GitHubPRTracker {
                 }
             }
         }
+        
+        // Reset loading status
+        this.updateLoadingStatus('Loading pull requests...', isAutoRefresh);
         
         return filteredPRs;
     }
@@ -1881,6 +1897,16 @@ class GitHubPRTracker {
         }
     }
 
+    updateLoadingStatus(message, isAutoRefresh = false) {
+        // Don't update loading status during auto-refresh
+        if (isAutoRefresh) return;
+        
+        const loadingText = document.querySelector('#loading p');
+        if (loadingText) {
+            loadingText.textContent = message;
+        }
+    }
+
     showError(message) {
         const errorDiv = document.getElementById('error-message');
         errorDiv.textContent = message;
@@ -1919,7 +1945,7 @@ class GitHubPRTracker {
             
             // Basic token format validation
             if (!token.startsWith('github_pat_') && !token.startsWith('ghp_')) {
-                this.showError('Token should start with "github_pat_" (fine-grained) or "ghp_" (classic)');
+                this.showError('Token should start with "ghp_" (classic) or "github_pat_" (fine-grained)');
                 return;
             }
             
@@ -1940,7 +1966,6 @@ class GitHubPRTracker {
                 this.showMainContent();
                 document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
                 this.fetchPullRequests(false, false); // Disable AbortController for token submission
-                this.showSuccess('Successfully authenticated with Personal Access Token');
                 
             } catch (error) {
                 console.error('Token validation failed:', error);
