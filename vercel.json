@@ -48,6 +48,10 @@
       "dest": "/api/auth-status.js"
     },
     {
+      "src": "/api/test-proxy",
+      "dest": "/api/test-proxy.js"
+    },
+    {
       "src": "/script.js",
       "headers": {
         "Cache-Control": "no-cache, no-store, must-revalidate",

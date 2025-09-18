@@ -440,20 +440,50 @@ class GitHubPRTracker {
         this.hideDeviceFlowUI();
     }
 
-    async fetchUser(signal = null) {
-        const response = await fetch('/api/github-proxy/user', {
-            headers: {
-                'Accept': 'application/vnd.github.v3+json'
-            },
-            credentials: 'include',
-            signal: signal
-        });
-
-        if (!response.ok) {
-            throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`);
+    async testProxy() {
+        console.log('Testing simple proxy endpoint...');
+        try {
+            const response = await fetch('/api/test-proxy', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            console.log('Test proxy response:', response.status, response.statusText);
+            const data = await response.json();
+            console.log('Test proxy data:', data);
+            return data;
+        } catch (error) {
+            console.error('Test proxy error:', error);
+            return error;
         }
+    }
 
-        return response.json();
+    async fetchUser(signal = null) {
+        console.log('fetchUser: Making request to /api/github-proxy/user');
+        
+        try {
+            const response = await fetch('/api/github-proxy/user', {
+                headers: {
+                    'Accept': 'application/vnd.github.v3+json'
+                },
+                credentials: 'include',
+                signal: signal
+            });
+
+            console.log('fetchUser: Response received:', response.status, response.statusText);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('fetchUser: Error response:', errorText);
+                throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('fetchUser: Success, user:', data.login);
+            return data;
+        } catch (error) {
+            console.error('fetchUser: Network error:', error);
+            throw error;
+        }
     }
 
     async fetchPullRequests(isAutoRefresh = false) {
