@@ -1,8 +1,8 @@
 class GitHubPRTracker {
     constructor() {
         this.clientId = 'Ov23li2VVjfGHdt11COT';
-        this.accessToken = localStorage.getItem('github_access_token');
-        this.authMethod = localStorage.getItem('auth_method') || 'oauth'; // 'oauth' or 'token'
+        this.accessToken = null;
+        this.authMethod = 'oauth'; // 'oauth' or 'token'
         this.deviceCode = null;
         this.pollingInterval = null;
         this.autoRefreshInterval = null;
@@ -18,7 +18,7 @@ class GitHubPRTracker {
         this.fetchCount = 0; // Safety counter to prevent infinite loops
         
         console.log('🏗️ [CONSTRUCTOR] GitHubPRTracker constructor called');
-        this.init();
+        this.checkAuthStatus().then(() => this.init());
     }
 
     // Helper function to get age cutoff date based on filter selection
@@ -32,6 +32,81 @@ class GitHubPRTracker {
         return cutoffDate;
     }
 
+    // Check authentication status from HTTP-only cookie
+    async checkAuthStatus() {
+        try {
+            const response = await fetch('/api/auth-status', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.authenticated) {
+                    this.accessToken = 'cookie-based'; // Placeholder since we can't access the actual token
+                    this.authMethod = data.auth_method;
+                } else {
+                    this.accessToken = null;
+                    this.authMethod = 'oauth';
+                }
+            }
+        } catch (error) {
+            console.error('Failed to check auth status:', error);
+            this.accessToken = null;
+            this.authMethod = 'oauth';
+        }
+    }
+
+    // Set authentication token using HTTP-only cookie
+    async setAuthToken(accessToken, authMethod = 'oauth') {
+        try {
+            const response = await fetch('/api/auth-set-token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    access_token: accessToken,
+                    auth_method: authMethod
+                })
+            });
+            
+            if (response.ok) {
+                this.accessToken = 'cookie-based';
+                this.authMethod = authMethod;
+                return true;
+            } else {
+                console.error('Failed to set auth token');
+                return false;
+            }
+        } catch (error) {
+            console.error('Error setting auth token:', error);
+            return false;
+        }
+    }
+
+    // Clear authentication token
+    async clearAuthToken() {
+        try {
+            const response = await fetch('/api/auth-clear-token', {
+                method: 'POST',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                this.accessToken = null;
+                this.authMethod = 'oauth';
+                return true;
+            } else {
+                console.error('Failed to clear auth token');
+                return false;
+            }
+        } catch (error) {
+            console.error('Error clearing auth token:', error);
+            return false;
+        }
+    }
 
     getMergeableStatusIcon(mergeable, mergeable_state, approvals, ciStatus) {
         // Only show "Mergeable" if GitHub says it's mergeable AND we have approvals AND CI is passing
@@ -66,11 +141,11 @@ class GitHubPRTracker {
 
     async fetchPRReviews(repoFullName, prNumber) {
         try {
-            const response = await fetch(`/api/github/repos/${repoFullName}/pulls/${prNumber}/reviews`, {
+            const response = await fetch(`/api/github-proxy/repos/${repoFullName}/pulls/${prNumber}/reviews`, {
                 headers: {
-                    'Authorization': `token ${this.accessToken}`,
                     'Accept': 'application/vnd.github.v3+json'
-                }
+                },
+                credentials: 'include'
             });
 
             if (!response.ok) {
@@ -101,11 +176,11 @@ class GitHubPRTracker {
 
     async fetchPRDetails(repoFullName, prNumber) {
         try {
-            const response = await fetch(`/api/github/repos/${repoFullName}/pulls/${prNumber}`, {
+            const response = await fetch(`/api/github-proxy/repos/${repoFullName}/pulls/${prNumber}`, {
                 headers: {
-                    'Authorization': `token ${this.accessToken}`,
                     'Accept': 'application/vnd.github.v3+json'
-                }
+                },
+                credentials: 'include'
             });
 
             if (!response.ok) {
@@ -183,7 +258,7 @@ class GitHubPRTracker {
             this.showDeviceFlowUI();
             
             // Step 1: Request device code via proxy
-            const deviceResponse = await fetch('/api/github/device/code', {
+            const deviceResponse = await fetch('/api/github-device-code', {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
@@ -217,11 +292,8 @@ class GitHubPRTracker {
         }
     }
 
-    logout() {
-        localStorage.removeItem('github_access_token');
-        localStorage.removeItem('auth_method');
-        this.accessToken = null;
-        this.authMethod = 'oauth';
+    async logout() {
+        await this.clearAuthToken();
         this.deviceCode = null;
         
         // Clear polling if active
@@ -239,7 +311,7 @@ class GitHubPRTracker {
     async startTokenPolling(deviceCode, interval) {
         const pollForToken = async () => {
             try {
-                const tokenResponse = await fetch('/api/github/device/token', {
+                const tokenResponse = await fetch('/api/github-device-token', {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/json',
@@ -255,10 +327,7 @@ class GitHubPRTracker {
                 
                 if (tokenData.access_token) {
                     // Success! We got the token
-                    this.accessToken = tokenData.access_token;
-                    this.authMethod = 'oauth';
-                    localStorage.setItem('github_access_token', this.accessToken);
-                    localStorage.setItem('auth_method', 'oauth');
+                    await this.setAuthToken(tokenData.access_token, 'oauth');
                     
                     clearInterval(this.pollingInterval);
                     this.pollingInterval = null;
@@ -354,11 +423,11 @@ class GitHubPRTracker {
     }
 
     async fetchUser(signal = null) {
-        const response = await fetch('/api/github/user', {
+        const response = await fetch('/api/github-proxy/user', {
             headers: {
-                'Authorization': `token ${this.accessToken}`,
                 'Accept': 'application/vnd.github.v3+json'
             },
+            credentials: 'include',
             signal: signal
         });
 
@@ -512,11 +581,11 @@ class GitHubPRTracker {
     }
 
     async searchPullRequests(query, signal = null) {
-        const response = await fetch(`/api/github/search/issues?q=${encodeURIComponent(query)}&per_page=100&sort=updated`, {
+        const response = await fetch(`/api/github-proxy/search/issues?q=${encodeURIComponent(query)}&per_page=100&sort=updated`, {
             headers: {
-                'Authorization': `token ${this.accessToken}`,
                 'Accept': 'application/vnd.github.v3+json'
             },
+            credentials: 'include',
             signal: signal
         });
 
@@ -550,11 +619,11 @@ class GitHubPRTracker {
     }
 
     async fetchUserRepos() {
-        const response = await fetch('/api/github/user/repos?type=all&sort=updated&per_page=100', {
+        const response = await fetch('/api/github-proxy/user/repos?type=all&sort=updated&per_page=100', {
             headers: {
-                'Authorization': `token ${this.accessToken}`,
                 'Accept': 'application/vnd.github.v3+json'
-            }
+            },
+            credentials: 'include'
         });
 
         if (!response.ok) {
@@ -565,11 +634,11 @@ class GitHubPRTracker {
     }
 
     async fetchRepoPRs(repoFullName) {
-        const response = await fetch(`/api/github/repos/${repoFullName}/pulls?state=open&per_page=100`, {
+        const response = await fetch(`/api/github-proxy/repos/${repoFullName}/pulls?state=open&per_page=100`, {
             headers: {
-                'Authorization': `token ${this.accessToken}`,
                 'Accept': 'application/vnd.github.v3+json'
-            }
+            },
+            credentials: 'include'
         });
 
         if (!response.ok) {
@@ -580,11 +649,11 @@ class GitHubPRTracker {
     }
 
     async fetchPRChecks(repoFullName, prNumber) {
-        const response = await fetch(`/api/github/repos/${repoFullName}/pulls/${prNumber}/commits`, {
+        const response = await fetch(`/api/github-proxy/repos/${repoFullName}/pulls/${prNumber}/commits`, {
             headers: {
-                'Authorization': `token ${this.accessToken}`,
                 'Accept': 'application/vnd.github.v3+json'
-            }
+            },
+            credentials: 'include'
         });
 
         if (!response.ok) {
@@ -598,23 +667,23 @@ class GitHubPRTracker {
 
         // Fetch check runs, commit statuses, and workflow runs in parallel
         const [checksResponse, statusesResponse, workflowRunsResponse] = await Promise.all([
-            fetch(`/api/github/repos/${repoFullName}/commits/${latestCommit.sha}/check-runs`, {
+            fetch(`/api/github-proxy/repos/${repoFullName}/commits/${latestCommit.sha}/check-runs`, {
                 headers: {
-                    'Authorization': `token ${this.accessToken}`,
                     'Accept': 'application/vnd.github.v3+json'
-                }
+                },
+                credentials: 'include'
             }),
-            fetch(`/api/github/repos/${repoFullName}/commits/${latestCommit.sha}/status`, {
+            fetch(`/api/github-proxy/repos/${repoFullName}/commits/${latestCommit.sha}/status`, {
                 headers: {
-                    'Authorization': `token ${this.accessToken}`,
                     'Accept': 'application/vnd.github.v3+json'
-                }
+                },
+                credentials: 'include'
             }),
-            fetch(`/api/github/repos/${repoFullName}/actions/runs?head_sha=${latestCommit.sha}&per_page=100`, {
+            fetch(`/api/github-proxy/repos/${repoFullName}/actions/runs?head_sha=${latestCommit.sha}&per_page=100`, {
                 headers: {
-                    'Authorization': `token ${this.accessToken}`,
                     'Accept': 'application/vnd.github.v3+json'
-                }
+                },
+                credentials: 'include'
             })
         ]);
 
@@ -841,12 +910,12 @@ class GitHubPRTracker {
             // Restart failed check runs
             for (const run of failedCheckRuns) {
                 try {
-                    const response = await fetch(`/api/github/repos/${repoFullName}/check-runs/${run.id}/rerequest`, {
+                    const response = await fetch(`/api/github-proxy/repos/${repoFullName}/check-runs/${run.id}/rerequest`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `token ${this.accessToken}`,
                             'Accept': 'application/vnd.github.v3+json'
-                        }
+                        },
+                        credentials: 'include'
                     });
                     
                     if (response.ok) {
@@ -863,12 +932,12 @@ class GitHubPRTracker {
             // Restart failed workflows
             for (const workflow of failedWorkflows) {
                 try {
-                    const response = await fetch(`/api/github/repos/${repoFullName}/actions/runs/${workflow.id}/rerun`, {
+                    const response = await fetch(`/api/github-proxy/repos/${repoFullName}/actions/runs/${workflow.id}/rerun`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `token ${this.accessToken}`,
                             'Accept': 'application/vnd.github.v3+json'
-                        }
+                        },
+                        credentials: 'include'
                     });
                     
                     if (response.ok) {
@@ -878,12 +947,12 @@ class GitHubPRTracker {
                         let errorMessage = `Failed to restart workflow "${workflow.name}"`;
                         
                         // Try rerunning failed jobs only if full rerun failed
-                        const failedJobsResponse = await fetch(`/api/github/repos/${repoFullName}/actions/runs/${workflow.id}/rerun-failed-jobs`, {
+                        const failedJobsResponse = await fetch(`/api/github-proxy/repos/${repoFullName}/actions/runs/${workflow.id}/rerun-failed-jobs`, {
                             method: 'POST',
                             headers: {
-                                'Authorization': `token ${this.accessToken}`,
                                 'Accept': 'application/vnd.github.v3+json'
-                            }
+                            },
+                            credentials: 'include'
                         });
                         
                         if (failedJobsResponse.ok) {
@@ -1622,12 +1691,12 @@ class GitHubPRTracker {
                     }
                 };
                 
-                const response = await fetch('/api/github/graphql', {
+                const response = await fetch('/api/github-graphql', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `token ${this.accessToken}`,
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify(graphqlQuery),
                     signal: signal
                 });
@@ -1789,9 +1858,7 @@ class GitHubPRTracker {
                 const user = await this.fetchUser();
                 
                 // If we get here, the token is valid
-                this.authMethod = 'token';
-                localStorage.setItem('github_access_token', token);
-                localStorage.setItem('auth_method', 'token');
+                await this.setAuthToken(token, 'token');
                 this.hideTokenModal();
                 this.showUserInfo(user);
                 this.showMainContent();

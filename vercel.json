@@ -24,6 +24,18 @@
       "dest": "/api/github-proxy.js"
     },
     {
+      "src": "/api/auth-set-token",
+      "dest": "/api/auth-set-token.js"
+    },
+    {
+      "src": "/api/auth-clear-token",
+      "dest": "/api/auth-clear-token.js"
+    },
+    {
+      "src": "/api/auth-status",
+      "dest": "/api/auth-status.js"
+    },
+    {
       "src": "/script.js",
       "headers": {
         "Cache-Control": "no-cache, no-store, must-revalidate",

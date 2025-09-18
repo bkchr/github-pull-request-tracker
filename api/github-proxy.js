@@ -27,8 +27,19 @@ module.exports = async (req, res) => {
             'User-Agent': 'PR-Tracker'
         };
         
-        // Forward authorization header if present
-        if (req.headers.authorization) {
+        // Get token from HTTP-only cookie
+        const cookies = {};
+        if (req.headers.cookie) {
+            req.headers.cookie.split(';').forEach(cookie => {
+                const [name, value] = cookie.trim().split('=');
+                cookies[name] = value;
+            });
+        }
+        
+        if (cookies.github_access_token) {
+            headers.Authorization = `Bearer ${cookies.github_access_token}`;
+        } else if (req.headers.authorization) {
+            // Fallback to authorization header for backwards compatibility
             headers.Authorization = req.headers.authorization;
         }
         
