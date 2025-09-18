@@ -2,9 +2,10 @@ const fetch = require('node-fetch');
 
 module.exports = async (req, res) => {
     // Enable CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
     
     if (req.method === 'OPTIONS') {
         res.status(200).end();
@@ -36,11 +37,19 @@ module.exports = async (req, res) => {
             });
         }
         
+        console.log('Cookie parsing debug:', {
+            hasCookieHeader: !!req.headers.cookie,
+            cookieKeys: Object.keys(cookies),
+            hasGithubToken: !!cookies.github_access_token
+        });
+        
         if (cookies.github_access_token) {
             headers.Authorization = `Bearer ${cookies.github_access_token}`;
         } else if (req.headers.authorization) {
             // Fallback to authorization header for backwards compatibility
             headers.Authorization = req.headers.authorization;
+        } else {
+            console.log('No authentication found - no cookie token and no auth header');
         }
         
         const fetchOptions = {

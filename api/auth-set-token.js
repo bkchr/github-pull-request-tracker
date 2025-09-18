@@ -35,6 +35,12 @@ module.exports = async (req, res) => {
             cookieOptions.push('Secure');
         }
 
+        console.log('Setting cookies:', {
+            isProduction,
+            cookieOptions,
+            hasToken: !!access_token
+        });
+
         res.setHeader('Set-Cookie', [
             `github_access_token=${access_token}; ${cookieOptions.join('; ')}`,
             `auth_method=${auth_method || 'oauth'}; ${cookieOptions.join('; ')}`
