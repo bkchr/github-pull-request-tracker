@@ -1852,6 +1852,12 @@ class GitHubPRTracker {
                 return;
             }
             
+            // Basic token format validation
+            if (!token.startsWith('github_pat_') && !token.startsWith('ghp_')) {
+                this.showError('Token should start with "github_pat_" (fine-grained) or "ghp_" (classic)');
+                return;
+            }
+            
             try {
                 // Validate the token by trying to fetch user info
                 this.accessToken = token;
