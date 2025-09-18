@@ -21,7 +21,6 @@ module.exports = async (req, res) => {
         const githubPath = pathWithQuery.replace('/api/github-proxy', '');
         const githubUrl = `https://api.github.com${githubPath}`;
         
-        console.log(`Proxying GitHub API request: ${req.method} ${githubUrl}`);
         
         const headers = {
             'Accept': 'application/vnd.github.v3+json',
@@ -37,19 +36,11 @@ module.exports = async (req, res) => {
             });
         }
         
-        console.log('Cookie parsing debug:', {
-            hasCookieHeader: !!req.headers.cookie,
-            cookieKeys: Object.keys(cookies),
-            hasGithubToken: !!cookies.github_access_token
-        });
-        
         if (cookies.github_access_token) {
             headers.Authorization = `Bearer ${cookies.github_access_token}`;
         } else if (req.headers.authorization) {
             // Fallback to authorization header for backwards compatibility
             headers.Authorization = req.headers.authorization;
-        } else {
-            console.log('No authentication found - no cookie token and no auth header');
         }
         
         const fetchOptions = {

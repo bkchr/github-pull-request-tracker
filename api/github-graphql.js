@@ -18,7 +18,6 @@ module.exports = async (req, res) => {
     }
 
     try {
-        console.log('Proxying GitHub GraphQL request');
         
         const headers = {
             'Accept': 'application/vnd.github.v3+json',

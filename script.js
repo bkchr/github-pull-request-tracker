@@ -45,6 +45,19 @@ class GitHubPRTracker {
                 if (data.authenticated) {
                     this.accessToken = 'cookie-based'; // Placeholder since we can't access the actual token
                     this.authMethod = data.auth_method;
+                    
+                    // Fetch user info and update UI
+                    try {
+                        const user = await this.fetchUser();
+                        this.showUserInfo(user);
+                        this.showMainContent();
+                        document.addEventListener('visibilitychange', () => this.handleVisibilityChange());
+                        this.fetchPullRequests(false);
+                    } catch (error) {
+                        console.error('Failed to fetch user on auth check:', error);
+                        // Clear invalid authentication
+                        await this.clearAuthToken();
+                    }
                 } else {
                     this.accessToken = null;
                     this.authMethod = 'oauth';
@@ -60,7 +73,6 @@ class GitHubPRTracker {
     // Set authentication token using HTTP-only cookie
     async setAuthToken(accessToken, authMethod = 'oauth') {
         try {
-            console.log('Attempting to set auth token via cookie...');
             const response = await fetch('/api/auth-set-token', {
                 method: 'POST',
                 headers: {
@@ -73,17 +85,12 @@ class GitHubPRTracker {
                 })
             });
             
-            console.log('Set token response:', response.status, response.statusText);
-            
             if (response.ok) {
-                const data = await response.json();
-                console.log('Set token success:', data);
                 this.accessToken = 'cookie-based';
                 this.authMethod = authMethod;
                 return true;
             } else {
-                const errorText = await response.text();
-                console.error('Failed to set auth token:', response.status, errorText);
+                console.error('Failed to set auth token:', response.status);
                 return false;
             }
         } catch (error) {
@@ -429,32 +436,19 @@ class GitHubPRTracker {
     }
 
     async fetchUser(signal = null) {
-        console.log('Attempting to fetch user from /api/github-proxy/user');
-        
-        try {
-            const response = await fetch('/api/github-proxy/user', {
-                headers: {
-                    'Accept': 'application/vnd.github.v3+json'
-                },
-                credentials: 'include',
-                signal: signal
-            });
+        const response = await fetch('/api/github-proxy/user', {
+            headers: {
+                'Accept': 'application/vnd.github.v3+json'
+            },
+            credentials: 'include',
+            signal: signal
+        });
 
-            console.log('Fetch user response:', response.status, response.statusText);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Fetch user error details:', errorText);
-                throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            console.log('Fetch user success:', data.login);
-            return data;
-        } catch (error) {
-            console.error('Fetch user network error:', error);
-            throw error;
+        if (!response.ok) {
+            throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`);
         }
+
+        return response.json();
     }
 
     async fetchPullRequests(isAutoRefresh = false) {
@@ -532,9 +526,7 @@ class GitHubPRTracker {
             const allPrs = await this.searchPullRequests(openPRsQuery, signal);
             
             // Check auto-merge ("merge when ready") status for each PR and filter
-            console.log(`🔍 [MERGE_WHEN_READY] Checking auto-merge status for ${allPrs.length} PRs`);
             const prs = await this.checkMergeQueueStatus(allPrs, signal, user);
-            console.log(`🔍 [FILTER] Filtered to ${prs.length} relevant PRs`);
             
             // Check if request was cancelled after search
             if (signal.aborted) {
@@ -557,18 +549,9 @@ class GitHubPRTracker {
             const filtersHaveChanged = this.filtersChanged(currentFilterState, newFilterState);
             
             // Only update display if data actually changed (for auto-refresh) AND filters haven't changed AND request wasn't cancelled
-            console.log(`🔧 [DEBUG] Fetch #${fetchId} checking display conditions:`);
-            console.log(`  - isAutoRefresh: ${isAutoRefresh}`);
-            console.log(`  - lastPRData !== newPRData: ${this.lastPRData !== newPRData}`);
-            console.log(`  - filtersHaveChanged: ${filtersHaveChanged}`);
-            console.log(`  - signal.aborted: ${signal.aborted}`);
-            
             if ((!isAutoRefresh || this.lastPRData !== newPRData) && !filtersHaveChanged && !signal.aborted) {
-                console.log(`✅ Fetch #${fetchId} completed, displaying results`);
                 this.displayPullRequests(prs, this.currentFetchController, isAutoRefresh);
                 this.lastPRData = newPRData;
-            } else {
-                console.log(`🚫 Fetch #${fetchId} NOT displaying results due to conditions above`);
             }
             
             // Start auto-refresh on first successful load (only if not already running)
@@ -811,10 +794,6 @@ class GitHubPRTracker {
         const checksToEvaluate = requiredChecks.length > 0 ? requiredChecks : allChecks;
         const states = checksToEvaluate.map(check => check.state);
         
-        console.log(`🔧 [CI-STATUS] Evaluating ${checksToEvaluate.length} required checks out of ${allChecks.length} total checks`);
-        checksToEvaluate.forEach(check => {
-            console.log(`  - ${check.name}: ${check.state} (${check.type})`);
-        });
         
         // Priority order: failure > pending > success
         // Check for any failures first (highest priority)
@@ -1067,9 +1046,6 @@ class GitHubPRTracker {
         this.displayIdCounter++;
         const displayId = this.displayIdCounter;
         const ageFilterDays = parseInt(document.getElementById('age-filter').value);
-        const controllerId = requestController?.fetchId || 'none';
-        console.log(`🏁 START display #${displayId}: ${prs.length} PRs, ageFilter=${ageFilterDays} days, controller=#${controllerId}`);
-        console.log(`🔧 [DEBUG] displayPullRequests called with ${prs.length} PRs, isAutoRefresh=${isAutoRefresh}`);
         
         // Cancel any old display in progress and start the new one
         if (this.displayInProgress) {
@@ -1090,7 +1066,6 @@ class GitHubPRTracker {
             return;
         }
         
-        console.log(`🔧 [DEBUG] Display #${displayId} continuing - not superseded`);
         
         // Check if this request is still the current one
         if (requestController && requestController !== this.currentFetchController) {
@@ -1142,12 +1117,7 @@ class GitHubPRTracker {
         
         // Hide the main loading spinner now that we're showing detailed progress (only if still current and not auto-refresh)
         if (this.currentDisplayId === displayId && !isAutoRefresh) {
-            console.log(`🔧 [DEBUG] Display #${displayId} hiding main loading spinner`);
             this.showLoading(false);
-        } else if (this.currentDisplayId === displayId && isAutoRefresh) {
-            console.log(`🔧 [DEBUG] Display #${displayId} skipping loading spinner hide (auto-refresh)`);
-        } else {
-            console.log(`🔧 [DEBUG] Display #${displayId} NOT hiding loading spinner - superseded by #${this.currentDisplayId}`);
         }
         
         let processedCount = 0;
@@ -1174,9 +1144,7 @@ class GitHubPRTracker {
             }
             
             if (matchesRepoFilter && matchesAgeFilter) {
-                console.log(`🔧 [DEBUG] Display #${displayId} creating element for PR: ${pr.title}`);
                 const prElement = await this.createPRElement(pr, isAutoRefresh);
-                console.log(`🔧 [DEBUG] Display #${displayId} created element for PR: ${pr.title}`);
                 
                 // Check if this display was superseded while creating the element
                 if (this.currentDisplayId !== displayId) {
@@ -1222,19 +1190,15 @@ class GitHubPRTracker {
         
         // Hide loading spinner if no PRs were added (only if this display is still current and not auto-refresh)
         if (visibleCount === 0 && this.currentDisplayId === displayId && !isAutoRefresh) {
-            console.log(`🔧 [DEBUG] Display #${displayId} no PRs added, hiding loading and showing no-prs message`);
             this.showLoading(false);
             if (repoQuery || ageCutoffDate) {
                 prList.innerHTML = '<div class="no-prs">No pull requests match the current filters</div>';
             } else {
                 prList.innerHTML = '<div class="no-prs">No open pull requests found</div>';
             }
-        } else {
-            console.log(`🔧 [DEBUG] Display #${displayId} finished with ${visibleCount} PRs, currentDisplayId=${this.currentDisplayId}, isAutoRefresh=${isAutoRefresh}`);
         }
         
         } finally {
-            console.log(`🔧 [DEBUG] Display #${displayId} finally block - setting displayInProgress=false`);
             this.displayInProgress = false;
         }
     }
@@ -1728,30 +1692,18 @@ class GitHubPRTracker {
                     const isMyPR = pr.user.login === user.login;
                     const iEnabledMergeWhenReady = autoMergeRequest && autoMergeRequest.enabledBy.login === user.login;
                     
-                    console.log(`🔍 [DEBUG] PR #${pr.number} by ${pr.user.login}:`);
-                    console.log(`  - isMyPR: ${isMyPR} (${pr.user.login} === ${user.login})`);
-                    console.log(`  - autoMergeRequest: ${!!autoMergeRequest}`);
-                    if (autoMergeRequest) {
-                        console.log(`  - enabledBy: ${autoMergeRequest.enabledBy.login}`);
-                        console.log(`  - iEnabledMergeWhenReady: ${iEnabledMergeWhenReady}`);
-                    }
                     
                     if (isMyPR || iEnabledMergeWhenReady) {
                         if (autoMergeRequest) {
                             pr.autoMergeRequest = autoMergeRequest;
                             pr.hasMergeWhenReady = true;
-                            console.log(`🎯 [MERGE_WHEN_READY] PR #${pr.number} has "merge when ready" enabled by ${autoMergeRequest.enabledBy.login}`);
                         }
                         filteredPRs.push(pr);
-                        console.log(`✅ [FILTER] Including PR #${pr.number}: ${isMyPR ? 'my PR' : ''} ${iEnabledMergeWhenReady ? 'I enabled merge when ready' : ''}`);
-                    } else {
-                        console.log(`🚫 [FILTER] Excluding PR #${pr.number}: not my PR and I didn't enable merge when ready`);
                     }
                 } else {
                     // If we can't check merge status, include it if it's the user's PR
                     if (pr.user.login === user.login) {
                         filteredPRs.push(pr);
-                        console.log(`✅ [FILTER] Including PR #${pr.number}: my PR (couldn't check merge status)`);
                     }
                     console.warn(`⚠️ [MERGE_WHEN_READY] Failed to check auto-merge for PR #${pr.number}: ${response.status}`);
                 }
@@ -1760,7 +1712,6 @@ class GitHubPRTracker {
                     // If we can't check merge status, include it if it's the user's PR
                     if (pr.user.login === user.login) {
                         filteredPRs.push(pr);
-                        console.log(`✅ [FILTER] Including PR #${pr.number}: my PR (error checking merge status)`);
                     }
                     console.warn(`⚠️ [MERGE_WHEN_READY] Error checking auto-merge for PR #${pr.number}:`, error.message);
                 }

@@ -22,10 +22,7 @@ module.exports = async (req, res) => {
             return res.status(400).json({ error: 'access_token is required' });
         }
 
-        // Set HTTP-only cookie with security flags for custom domain
-        const host = req.headers.host;
-        const domain = host; // Use exact host to avoid subdomain issues
-        
+        // Set HTTP-only cookie with security flags
         const cookieOptions = [
             'HttpOnly',
             'SameSite=Lax', // More permissive for same-site requests
@@ -33,13 +30,6 @@ module.exports = async (req, res) => {
             'Path=/',
             'Max-Age=2592000' // 30 days
         ];
-
-        console.log('Setting cookies:', {
-            host,
-            domain,
-            cookieOptions,
-            hasToken: !!access_token
-        });
 
         res.setHeader('Set-Cookie', [
             `github_access_token=${access_token}; ${cookieOptions.join('; ')}`,

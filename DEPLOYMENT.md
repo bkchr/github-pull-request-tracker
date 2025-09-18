@@ -1,14 +1,14 @@
 # Deployment Guide
 
-## Automatic Deployment with GitHub Actions
+## Automatic Deployment with Vercel
 
-This repository includes a GitHub Actions workflow that automatically deploys to Vercel when you push to the `master` branch.
+Vercel automatically deploys your application when you push to the `master` branch. No additional setup required!
 
-### Required GitHub Secrets
+## Manual Deployment (if needed)
 
-To enable automatic deployment, you need to add these secrets to your GitHub repository:
+If you need to deploy manually, you can use the Vercel CLI:
 
-#### 1. Get Vercel Token
+### Install Vercel CLI
 ```bash
 # Install Vercel CLI globally
 npm install -g vercel
@@ -16,53 +16,12 @@ npm install -g vercel
 # Login to Vercel
 vercel login
 
-# Get your token (this will display your token)
-vercel --token
-```
-
-#### 2. Get Project Information
-```bash
-# In your project directory, link to Vercel project
-vercel link
-
-# Get your Organization ID and Project ID
-cat .vercel/project.json
-```
-
-#### 3. Add Secrets to GitHub
-Go to your GitHub repository → Settings → Secrets and variables → Actions
-
-Add these repository secrets:
-
-- **`VERCEL_TOKEN`**: Your Vercel API token from step 1
-- **`VERCEL_ORG_ID`**: Your organization ID from `.vercel/project.json`  
-- **`VERCEL_PROJECT_ID`**: Your project ID from `.vercel/project.json`
-
-### How it Works
-
-- **Push to `master`**: Automatically deploys to production
-- **Pull Requests**: Creates preview deployments for testing
-- **Build Process**: Uses your `vercel.json` configuration
-- **Environment Variables**: Uses the `GITHUB_CLIENT_ID` from your `vercel.json`
-
-### Manual Deployment
-
-You can still deploy manually using:
-
-```bash
 # Deploy to preview
 vercel
 
 # Deploy to production  
 vercel --prod
 ```
-
-### Deployment Status
-
-Check deployment status in:
-- GitHub Actions tab in your repository
-- Vercel dashboard
-- Vercel deployments page
 
 ## Local Development
 
@@ -77,3 +36,23 @@ npm start
 ```
 
 The application will be available at `http://localhost:3000`.
+
+## Environment Variables
+
+The application uses these environment variables (already configured in `vercel.json`):
+
+- `GITHUB_CLIENT_ID` - Your GitHub OAuth app client ID (hardcoded in vercel.json)
+
+## Project Structure
+
+- **Frontend**: Static HTML/CSS/JS files served by Vercel
+- **API Routes**: Serverless functions in `/api/` directory
+- **Configuration**: `vercel.json` handles routing and environment variables
+
+## Vercel Features Used
+
+- **Serverless Functions**: API endpoints in `/api/` folder
+- **Static File Serving**: HTML, CSS, JS files
+- **Custom Domain**: Configured for `pr-tracker.kchr.de`
+- **Automatic HTTPS**: Handled by Vercel
+- **HTTP-Only Cookies**: Secure authentication token storage

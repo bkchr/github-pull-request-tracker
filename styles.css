@@ -674,3 +674,23 @@ main {
         margin: 20px;
     }
 }
+
+/* Footer */
+.footer {
+    margin-top: 40px;
+    padding: 20px 0;
+    border-top: 1px solid #e1e4e8;
+    text-align: center;
+    font-size: 0.9em;
+    color: #656d76;
+    background: #f6f8fa;
+}
+
+.footer a {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
